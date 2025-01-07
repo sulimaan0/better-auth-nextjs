@@ -6,7 +6,10 @@ import SignoutButton from "@/components/signout-button";
 import { Button } from "@/components/ui/button";
 
 export default function AuthButtons() {
-	const { data: session } = authClient.useSession();
+	const { data, isPending } = authClient.useSession();
+	if (isPending) return <div>Loading...</div>;
+
+	const session = data;
 
 	return !session ? (
 		<div className="flex gap-2 justify-center">
