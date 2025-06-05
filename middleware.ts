@@ -20,14 +20,14 @@ export default async function authMiddleware(request: NextRequest) {
         //get the cookie from the request
         cookie: request.headers.get("cookie") || "",
       },
-    },
+    }
   );
 
   if (!session) {
-    if (isAuthRoute || isPasswordRoute) {
+    if (pathName === "/" || isAuthRoute || isPasswordRoute) {
       return NextResponse.next();
     }
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   if (isAuthRoute || isPasswordRoute) {
@@ -42,5 +42,5 @@ export default async function authMiddleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
+  matcher: ["/((?!api|_next/static|_next/image|.*\\.png$).*)"],
 };
