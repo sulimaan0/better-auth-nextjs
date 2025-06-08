@@ -87,7 +87,7 @@ export function Navigation() {
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-4">
           {session ? (
             <div className="flex gap-4">
-              <DropdownMenu className="flex justify-center gap-10">
+              <DropdownMenu>
                 <DropdownMenuTrigger
                   className="text-xl flex items-center gap-2 hover:text-gray-600
                   "
