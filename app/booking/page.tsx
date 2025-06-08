@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,6 +15,7 @@ import {
   CreditCard,
   CheckCircle,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { BookingProgress } from "@/components/booking/booking-progress";
 import { ServiceTypeStep } from "@/components/booking/service-type-step";
@@ -35,6 +37,7 @@ export default function BookingPage() {
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [bookingId, setBookingId] = useState("");
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const router = useRouter();
 
   const [formData, setFormData] = useState({
@@ -42,8 +45,8 @@ export default function BookingPage() {
     frequency: "",
     bedrooms: "",
     bathrooms: "",
-    extras: [],
-    date: undefined,
+    extras: [] as string[],
+    date: null as Date | null,
     time: "",
     address: "",
     instructions: "",
@@ -66,66 +69,160 @@ export default function BookingPage() {
     }
   };
 
-  const validateStep = (step: number): boolean => {
+  const validateStep = (
+    step: number
+  ): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
     switch (step) {
       case 1:
-        return !!(formData.serviceType && formData.frequency);
+        if (!formData.serviceType) errors.push("Please select a service type");
+        if (!formData.frequency) errors.push("Please select a frequency");
+        break;
       case 2:
-        return !!(formData.bedrooms && formData.bathrooms && formData.address);
+        if (!formData.bedrooms) errors.push("Please select number of bedrooms");
+        if (!formData.bathrooms)
+          errors.push("Please select number of bathrooms");
+        if (!formData.address.trim()) errors.push("Please enter your address");
+        break;
       case 3:
-        return !!(formData.date && formData.time);
+        if (!formData.date) errors.push("Please select a date");
+        if (!formData.time) errors.push("Please select a time");
+        // Check if date is in the future
+        if (formData.date && formData.date <= new Date()) {
+          errors.push("Please select a future date");
+        }
+        break;
       case 4:
-        return !!(
-          formData.contactInfo.name &&
+        if (!formData.contactInfo.name.trim())
+          errors.push("Please enter your name");
+        if (!formData.contactInfo.email.trim())
+          errors.push("Please enter your email");
+        if (!formData.contactInfo.phone.trim())
+          errors.push("Please enter your phone number");
+
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (
           formData.contactInfo.email &&
-          formData.contactInfo.phone
-        );
+          !emailRegex.test(formData.contactInfo.email)
+        ) {
+          errors.push("Please enter a valid email address");
+        }
+
+        // Basic phone validation (UK format)
+        const phoneRegex = /^(\+44|0)[1-9]\d{8,10}$/;
+        if (
+          formData.contactInfo.phone &&
+          !phoneRegex.test(formData.contactInfo.phone.replace(/\s/g, ""))
+        ) {
+          errors.push("Please enter a valid UK phone number");
+        }
+        break;
       default:
-        return true;
+        break;
     }
+
+    return { isValid: errors.length === 0, errors };
   };
 
   const handleNext = () => {
-    if (validateStep(currentStep)) {
+    const validation = validateStep(currentStep);
+    setValidationErrors(validation.errors);
+
+    if (validation.isValid) {
       if (currentStep === steps.length) {
         handleSubmit();
       } else {
         nextStep();
       }
+    } else {
+      // Show validation errors
+      toast({
+        title: "Please fix the following errors:",
+        description: validation.errors.join(", "),
+        variant: "destructive",
+      });
     }
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setSubmitError("");
+    setValidationErrors([]);
+
+    // Final validation
+    const validation = validateStep(currentStep);
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
+      console.log("Submitting booking with data:", formData);
+
+      // Prepare data for API
+      const submissionData = {
+        ...formData,
+        date: formData.date?.toISOString(), // Convert Date to string
+        extras: formData.extras || [],
+      };
+
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submissionData),
       });
 
+      console.log("API Response status:", response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
+      console.log("API Response:", result);
 
       if (result.success) {
         setSubmitSuccess(true);
         setBookingId(result.booking.bookingId);
+
+        toast({
+          title: "Booking Confirmed!",
+          description: `Your booking ID is ${result.booking.bookingId}`,
+        });
 
         // Redirect to success page after a short delay
         setTimeout(() => {
           router.push(`/booking/success?id=${result.booking.bookingId}`);
         }, 2000);
       } else {
+        console.error("Booking failed:", result.error);
         setSubmitError(result.error || "Failed to create booking");
+
+        toast({
+          title: "Booking Failed",
+          description: result.error || "Failed to create booking",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Booking submission error:", error);
-      setSubmitError(
-        "Network error. Please check your connection and try again."
-      );
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Network error. Please check your connection and try again.";
+
+      setSubmitError(errorMessage);
+
+      toast({
+        title: "Booking Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -204,6 +301,20 @@ export default function BookingPage() {
           </Alert>
         )}
 
+        {/* Validation Errors */}
+        {validationErrors.length > 0 && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-1">
+                {validationErrors.map((error, index) => (
+                  <p key={index}>• {error}</p>
+                ))}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Step Content */}
         <Card className="mb-8">
           <CardContent className="p-8">{renderStep()}</CardContent>
@@ -222,15 +333,22 @@ export default function BookingPage() {
           </Button>
           <Button
             onClick={handleNext}
-            disabled={!validateStep(currentStep) || isSubmitting}
+            disabled={isSubmitting}
             className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
           >
-            {isSubmitting
-              ? "Creating Booking..."
-              : currentStep === steps.length
-              ? "Complete Booking"
-              : "Next"}
-            <ArrowRight className="w-4 h-4" />
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating Booking...
+              </>
+            ) : currentStep === steps.length ? (
+              "Complete Booking"
+            ) : (
+              <>
+                Next
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </Button>
         </div>
       </div>

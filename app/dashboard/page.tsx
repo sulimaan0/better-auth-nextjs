@@ -1,63 +1,30 @@
+// app/dashboard/page.tsx
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { BookingsTabs } from "@/components/dashboard/bookings-tabs";
 import { Footer } from "@/components/layout/footer";
+import { auth } from "@/auth";
+import { headers } from "next/headers";
+import { getUserBookingsForDashboard } from "@/lib/dashboard-service";
+import { redirect } from "next/navigation";
 
-const upcomingBookings = [
-  {
-    id: 1,
-    service: "Regular Cleaning",
-    date: "2024-01-15",
-    time: "10:00 AM",
-    cleaner: "Sarah Johnson",
-    cleanerImage: "/placeholder.svg?height=40&width=40",
-    address: "123 Oak Street, London SW1A 1AA",
-    status: "confirmed",
-    price: "£45.00",
-  },
-  {
-    id: 2,
-    service: "Deep Cleaning",
-    date: "2024-01-22",
-    time: "2:00 PM",
-    cleaner: "Mike Chen",
-    cleanerImage: "/placeholder.svg?height=40&width=40",
-    address: "123 Oak Street, London SW1A 1AA",
-    status: "pending",
-    price: "£85.00",
-  },
-];
+export default async function DashboardPage() {
+  // Get the current user session
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-const pastBookings = [
-  {
-    id: 3,
-    service: "Regular Cleaning",
-    date: "2024-01-08",
-    time: "10:00 AM",
-    cleaner: "Sarah Johnson",
-    cleanerImage: "/placeholder.svg?height=40&width=40",
-    address: "123 Oak Street, London SW1A 1AA",
-    status: "completed",
-    price: "£45.00",
-    rating: 5,
-  },
-  {
-    id: 4,
-    service: "End of Tenancy",
-    date: "2023-12-20",
-    time: "9:00 AM",
-    cleaner: "Emma Wilson",
-    cleanerImage: "/placeholder.svg?height=40&width=40",
-    address: "456 Pine Avenue, London SW2B 2BB",
-    status: "completed",
-    price: "£200.00",
-    rating: 4,
-  },
-];
+  // Redirect to sign-in if not authenticated
+  if (!session?.user?.id) {
+    redirect("/sign-in");
+  }
 
-export default function DashboardPage() {
+  // Fetch user's bookings from database
+  const { upcomingBookings, pastBookings, totalBookings, stats } =
+    await getUserBookingsForDashboard(session.user.id);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 py-8">
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
@@ -65,10 +32,12 @@ export default function DashboardPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              My Dashboard
+              Welcome back, {session.user.name || "User"}!
             </h1>
             <p className="text-gray-600">
-              Manage your cleaning bookings and preferences
+              {totalBookings === 0
+                ? "Ready to book your first cleaning service?"
+                : `You have ${upcomingBookings.length} upcoming bookings`}
             </p>
           </div>
           <Button
@@ -83,13 +52,34 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Cards */}
-        <StatsCards />
+        <StatsCards stats={stats} totalBookings={totalBookings} />
 
         {/* Bookings Tabs */}
         <BookingsTabs
           upcomingBookings={upcomingBookings}
           pastBookings={pastBookings}
         />
+
+        {/* Empty State */}
+        {totalBookings === 0 && (
+          <div className="text-center py-12">
+            <div className="max-w-md mx-auto">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No bookings yet
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Get started by booking your first cleaning service. It only
+                takes a few minutes!
+              </p>
+              <Button
+                asChild
+                className="bg-gradient-to-r from-green-600 to-blue-600"
+              >
+                <Link href="/booking">Book Your First Cleaning</Link>
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
       <div className="mt-20">
         <Footer />

@@ -6,23 +6,79 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // or "mysql", "sqlite", etc.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  phone     String?
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  premium       Boolean   @default(false)
+  role          String    @default("user")
+  banned        Boolean   @default(false)
+  banReason     String?
+  banExpires    Int? /// Unix timestamp for ban expiration
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
   // Relations
-  bookings Booking[]
+  sessions      Session[]
+  accounts      Account[]
+  bookings      Booking[]
 
   @@map("users")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  userId         String
+  token          String   @unique
+  expiresAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  impersonatedBy String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, value])
+  @@map("verifications")
 }
 
 model Booking {
@@ -58,7 +114,7 @@ model Booking {
   
   // Relations
   userId      String?
-  user        User?         @relation(fields: [userId], references: [id])
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   extras      BookingExtra[]
   
   // Timestamps
@@ -89,8 +145,9 @@ model BookingExtra {
   bookingId String
   extraId   String
   
+  // Relations
   booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  extra     Extra   @relation(fields: [extraId], references: [id])
+  extra     Extra   @relation(fields: [extraId], references: [id], onDelete: Cascade)
   
   @@unique([bookingId, extraId])
   @@map("booking_extras")

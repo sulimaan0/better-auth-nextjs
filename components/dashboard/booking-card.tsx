@@ -1,3 +1,4 @@
+// components/dashboard/booking-card.tsx
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +11,14 @@ import {
   Star,
   Edit,
   Trash2,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 
 interface BookingCardProps {
   booking: {
-    id: number;
+    id: string;
+    bookingId: string;
     service: string;
     date: string;
     time: string;
@@ -30,7 +33,7 @@ interface BookingCardProps {
 }
 
 export function BookingCard({ booking, type }: BookingCardProps) {
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "confirmed":
         return "bg-green-100 text-green-800";
@@ -44,7 +47,7 @@ export function BookingCard({ booking, type }: BookingCardProps) {
   };
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer">
+    <Card className="shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
       <CardContent className="p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between">
           <div className="flex-1 space-y-4">
@@ -63,6 +66,9 @@ export function BookingCard({ booking, type }: BookingCardProps) {
               <div className="text-right">
                 <p className="text-lg font-semibold text-green-600">
                   {booking.price}
+                </p>
+                <p className="text-sm text-gray-500">
+                  ID: {booking.bookingId.split("-").pop()}
                 </p>
               </div>
             </div>
@@ -86,7 +92,7 @@ export function BookingCard({ booking, type }: BookingCardProps) {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <MapPin className="h-4 w-4" />
-                  <span>{booking.address}</span>
+                  <span className="truncate">{booking.address}</span>
                 </div>
               </div>
 
@@ -114,7 +120,7 @@ export function BookingCard({ booking, type }: BookingCardProps) {
                           <Star
                             key={i}
                             className={`h-3 w-3 ${
-                              i < booking.rating
+                              i < booking.rating!
                                 ? "text-yellow-400 fill-current"
                                 : "text-gray-300"
                             }`}
@@ -135,6 +141,19 @@ export function BookingCard({ booking, type }: BookingCardProps) {
           </div>
 
           <div className="flex gap-2 mt-4 md:mt-0 md:ml-6">
+            {/* View Details Button - Available for all bookings */}
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-md"
+            >
+              <Link href={`/booking/${booking.bookingId}`}>
+                <Eye className="h-4 w-4 mr-1" />
+                View Details
+              </Link>
+            </Button>
+
             {type === "upcoming" && (
               <>
                 <Button

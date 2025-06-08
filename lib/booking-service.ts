@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma"; // Changed from named import to default import
 import type { ServiceType, Frequency, BookingStatus } from "@prisma/client";
 
 export interface CreateBookingData {
@@ -81,6 +81,8 @@ function calculatePricing(
 
 export async function createBooking(data: CreateBookingData) {
   try {
+    console.log("🔄 Starting booking creation with data:", data);
+
     // Validate and convert data
     const serviceType = data.serviceType.toUpperCase() as ServiceType;
     const frequency = data.frequency
@@ -88,6 +90,13 @@ export async function createBooking(data: CreateBookingData) {
       .replace("-", "_") as Frequency;
     const bedrooms = Number.parseInt(data.bedrooms);
     const bathrooms = Number.parseInt(data.bathrooms);
+
+    console.log("✅ Validated data:", {
+      serviceType,
+      frequency,
+      bedrooms,
+      bathrooms,
+    });
 
     // Calculate pricing
     const { basePrice, extrasPrice, totalPrice } = calculatePricing(
@@ -97,8 +106,16 @@ export async function createBooking(data: CreateBookingData) {
       data.extras
     );
 
+    console.log("💰 Calculated pricing:", {
+      basePrice,
+      extrasPrice,
+      totalPrice,
+    });
+
     // Create booking with transaction to ensure data consistency
     const booking = await prisma.$transaction(async (tx) => {
+      console.log("🔄 Creating booking in database...");
+
       // Create the booking
       const newBooking = await tx.booking.create({
         data: {
@@ -121,8 +138,12 @@ export async function createBooking(data: CreateBookingData) {
         },
       });
 
+      console.log("✅ Booking created with ID:", newBooking.id);
+
       // Add extras if any
       if (data.extras.length > 0) {
+        console.log("🔄 Adding extras:", data.extras);
+
         // First, ensure all extras exist in the database
         for (const extraId of data.extras) {
           await tx.extra.upsert({
@@ -143,6 +164,8 @@ export async function createBooking(data: CreateBookingData) {
             extraId,
           })),
         });
+
+        console.log("✅ Extras added successfully");
       }
 
       return newBooking;
@@ -161,13 +184,15 @@ export async function createBooking(data: CreateBookingData) {
       },
     });
 
+    console.log("✅ Complete booking created:", completeBooking);
+
     return {
       success: true,
       booking: completeBooking,
       message: `Booking created successfully! Your booking ID is ${booking.bookingId}`,
     };
   } catch (error) {
-    console.error("Error creating booking:", error);
+    console.error("❌ Error creating booking:", error);
     return {
       success: false,
       error: "Failed to create booking. Please try again.",
