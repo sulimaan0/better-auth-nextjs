@@ -64,7 +64,7 @@ export async function POST(request: Request) {
         email: body.contactInfo.email,
         phone: body.contactInfo.phone,
       },
-      userId: session?.user?.id || null, // Add user ID if logged in
+      userId: session?.user?.id || undefined, // Add user ID if logged in
     };
 
     console.log("🔄 Creating booking with data:", bookingData);

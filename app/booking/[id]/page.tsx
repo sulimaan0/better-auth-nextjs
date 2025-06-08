@@ -243,18 +243,24 @@ export default async function BookingDetailsPage({ params }: BookingPageProps) {
             <CardContent className="space-y-4">
               <div className="flex justify-between">
                 <span className="text-gray-600">Base Price</span>
-                <span className="font-medium">£{booking.basePrice}</span>
+                <span className="font-medium">
+                  £{booking.basePrice.toString()}
+                </span>
               </div>
               {Number(booking.extrasPrice) > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Extras</span>
-                  <span className="font-medium">£{booking.extrasPrice}</span>
+                  <span className="font-medium">
+                    £{booking.extrasPrice.toString()}
+                  </span>
                 </div>
               )}
               <hr />
               <div className="flex justify-between text-lg font-semibold">
                 <span>Total</span>
-                <span className="text-green-600">£{booking.totalPrice}</span>
+                <span className="text-green-600">
+                  £{booking.totalPrice.toString()}
+                </span>
               </div>
             </CardContent>
           </Card>

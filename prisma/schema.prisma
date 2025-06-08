@@ -6,79 +6,84 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgresql" // or "mysql", "sqlite", etc.
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  premium       Boolean   @default(false)
-  role          String    @default("user")
-  banned        Boolean   @default(false)
-  banReason     String?
-  banExpires    Int? /// Unix timestamp for ban expiration
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  phone         String?
+  avatar        String?
+  role          Role     @default(CUSTOMER)
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Customer specific fields
+  postcode      String?
+  address       String?
+
   // Relations
-  sessions      Session[]
-  accounts      Account[]
   bookings      Booking[]
+  cleanerProfile CleanerProfile?
 
   @@map("users")
 }
 
-model Account {
-  id                    String    @id @default(cuid())
-  userId                String
-  accountId             String
-  providerId            String
-  accessToken           String?
-  refreshToken          String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
+model CleanerProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  workingPostcode String
+  workingRadius   Int      @default(15) // miles
+  latitude        Float?
+  longitude       Float?
+  hourlyRate      Decimal  @db.Decimal(10, 2) @default(15.00)
+  isActive        Boolean  @default(true)
+  isAvailable     Boolean  @default(true)
+  
+  // Availability schedule
+  availability    CleanerAvailability[]
+  
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedBookings Booking[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@map("accounts")
+  @@map("cleaner_profiles")
 }
 
-model Session {
-  id             String   @id @default(cuid())
-  userId         String
-  token          String   @unique
-  expiresAt      DateTime
-  ipAddress      String?
-  userAgent      String?
-  impersonatedBy String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
+model CleanerAvailability {
+  id          String   @id @default(cuid())
+  cleanerId   String
+  dayOfWeek   Int      // 0 = Sunday, 1 = Monday, etc.
+  startTime   String   // e.g., "09:00"
+  endTime     String   // e.g., "17:00"
+  isAvailable Boolean  @default(true)
+  
+  cleaner     CleanerProfile @relation(fields: [cleanerId], references: [id], onDelete: Cascade)
+  
+  @@unique([cleanerId, dayOfWeek])
+  @@map("cleaner_availability")
 }
 
-model Verification {
-  id         String   @id @default(cuid())
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model Postcode {
+  id        String   @id @default(cuid())
+  postcode  String   @unique
+  latitude  Float
+  longitude Float
+  district  String?
+  ward      String?
+  county    String?
+  country   String   @default("UK")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([identifier, value])
-  @@map("verifications")
+  @@map("postcodes")
 }
 
 model Booking {
@@ -93,28 +98,35 @@ model Booking {
   bedrooms    Int
   bathrooms   Int
   address     String
+  postcode    String
   instructions String?
   
   // Date and time
   date        DateTime
   time        String
+  estimatedDuration Int @default(120) // minutes
   
   // Pricing
   basePrice   Decimal       @db.Decimal(10, 2)
   extrasPrice Decimal       @db.Decimal(10, 2) @default(0)
   totalPrice  Decimal       @db.Decimal(10, 2)
   
-  // Contact info
+  // Contact info (for guest bookings)
   customerName  String
   customerEmail String
   customerPhone String
+  
+  // Assignment
+  assignedCleanerId String?
+  assignedAt       DateTime?
   
   // Status
   status      BookingStatus @default(PENDING)
   
   // Relations
   userId      String?
-  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user        User?         @relation(fields: [userId], references: [id])
+  assignedCleaner CleanerProfile? @relation(fields: [assignedCleanerId], references: [id])
   extras      BookingExtra[]
   
   // Timestamps
@@ -145,12 +157,17 @@ model BookingExtra {
   bookingId String
   extraId   String
   
-  // Relations
   booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  extra     Extra   @relation(fields: [extraId], references: [id], onDelete: Cascade)
+  extra     Extra   @relation(fields: [extraId], references: [id])
   
   @@unique([bookingId, extraId])
   @@map("booking_extras")
+}
+
+enum Role {
+  CUSTOMER
+  CLEANER
+  ADMIN
 }
 
 enum ServiceType {
@@ -170,6 +187,7 @@ enum Frequency {
 enum BookingStatus {
   PENDING
   CONFIRMED
+  ASSIGNED
   IN_PROGRESS
   COMPLETED
   CANCELLED
