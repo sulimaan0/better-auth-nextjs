@@ -26,7 +26,7 @@ export async function sendEmail({
     from: process.env.EMAIL_FROM,
     subject: subject.trim(),
     text: text.trim(),
-    html: html.trim(),
+    html: html?.trim() || "",
   };
 
   try {
