@@ -1,71 +1,119 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgresql" // or "mysql", "sqlite", etc.
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String    @id @default(cuid()) @map("_id")
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  premium       Boolean   @default(false)
-  role          String    @default("user")
-  banned        Boolean   @default(false)
-  banReason     String?
-  banExpires    Int? /// Unix timestamp for ban expiration
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  phone     String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  bookings Booking[]
+
+  @@map("users")
 }
 
-model Session {
-  id             String   @id @default(cuid()) @map("_id")
-  userId         String
-  token          String
-  expiresAt      DateTime
-  ipAddress      String?
-  userAgent      String?
-  impersonatedBy String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model Booking {
+  id          String        @id @default(cuid())
+  bookingId   String        @unique @default(cuid()) // Public booking reference
+  
+  // Service details
+  serviceType ServiceType
+  frequency   Frequency
+  
+  // Property details
+  bedrooms    Int
+  bathrooms   Int
+  address     String
+  instructions String?
+  
+  // Date and time
+  date        DateTime
+  time        String
+  
+  // Pricing
+  basePrice   Decimal       @db.Decimal(10, 2)
+  extrasPrice Decimal       @db.Decimal(10, 2) @default(0)
+  totalPrice  Decimal       @db.Decimal(10, 2)
+  
+  // Contact info
+  customerName  String
+  customerEmail String
+  customerPhone String
+  
+  // Status
+  status      BookingStatus @default(PENDING)
+  
+  // Relations
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id])
+  extras      BookingExtra[]
+  
+  // Timestamps
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("bookings")
 }
 
-model Account {
-  id                    String    @id @default(cuid()) @map("_id")
-  userId                String
-  accountId             String
-  providerId            String
-  accessToken           String?
-  refreshToken          String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+model Extra {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal        @db.Decimal(10, 2)
+  active      Boolean        @default(true)
+  
+  // Relations
+  bookings    BookingExtra[]
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("extras")
 }
 
-model Verification {
-  id         String   @id @default(cuid()) @map("_id")
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model BookingExtra {
+  id        String  @id @default(cuid())
+  bookingId String
+  extraId   String
+  
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  extra     Extra   @relation(fields: [extraId], references: [id])
+  
+  @@unique([bookingId, extraId])
+  @@map("booking_extras")
+}
+
+enum ServiceType {
+  REGULAR
+  DEEP
+  TENANCY
+  OFFICE
+}
+
+enum Frequency {
+  ONE_TIME
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }

@@ -1,10 +1,10 @@
 import { auth } from "@/auth";
 import { headers } from "next/headers";
-import Header from "@/components/header";
-import Hero from "@/components/hero";
-import HowItWorks from "@/components/how-it-works";
-import Reviews from "@/components/reviews";
-import Footer from "@/components/footer";
+import { HeroSection } from "@/components/home/hero-section";
+import { FeaturesSection } from "@/components/home/features-section";
+import { ServicesSection } from "@/components/home/services-section";
+import { CTASection } from "@/components/home/cta-section";
+import { Footer } from "@/components/layout/footer";
 import { AuthProvider } from "@/context/AuthContext";
 
 export default async function Home() {
@@ -13,15 +13,13 @@ export default async function Home() {
   });
   return (
     <AuthProvider initialSession={session}>
-      <div>
-        <Header />
-        <main>
-          <Hero />
-          <HowItWorks />
-          <Reviews />
-        </main>
-        <Footer />
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+      <HeroSection />
+      <FeaturesSection />
+      <ServicesSection />
+      <CTASection />
+      <Footer />
+    </div>
     </AuthProvider>
   );
 }

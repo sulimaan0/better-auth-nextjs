@@ -5,10 +5,12 @@ export async function sendEmail({
   to,
   subject,
   text,
+  html,
 }: {
   to: string;
   subject: string;
   text: string;
+  html?: string;
 }) {
   if (!process.env.SENDGRID_API_KEY) {
     throw new Error("SENDGRID_API_KEY environment variable is not set");
@@ -24,6 +26,7 @@ export async function sendEmail({
     from: process.env.EMAIL_FROM,
     subject: subject.trim(),
     text: text.trim(),
+    html: html.trim(),
   };
 
   try {
