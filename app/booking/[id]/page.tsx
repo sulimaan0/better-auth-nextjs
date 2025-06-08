@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   Calendar,
   Clock,
-  MapPin,
   User,
   Phone,
   Mail,
@@ -21,10 +20,11 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 
+// Updated interface for Next.js 15+ - params is now a Promise
 interface BookingPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 function getStatusColor(status: string) {
@@ -71,14 +71,18 @@ function getStatusIcon(status: string) {
   }
 }
 
+// Component is now async and awaits params
 export default async function BookingDetailsPage({ params }: BookingPageProps) {
+  // Await the params Promise
+  const { id } = await params;
+
   // Get current session
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
   // Fetch the booking by ID
-  const booking = await getBookingById(params.id);
+  const booking = await getBookingById(id);
 
   // Handle booking not found
   if (!booking) {
