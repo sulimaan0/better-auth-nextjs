@@ -1,4 +1,5 @@
-import prisma from "@/lib/prisma"; // Changed from named import to default import
+import prisma from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library"; // ✅ Import Decimal
 import type { ServiceType, Frequency, BookingStatus } from "@prisma/client";
 
 export interface CreateBookingData {
@@ -7,6 +8,7 @@ export interface CreateBookingData {
   bedrooms: string;
   bathrooms: string;
   address: string;
+  postcode: string; // ✅ Add missing postcode
   instructions?: string;
   date: Date;
   time: string;
@@ -52,7 +54,8 @@ function calculatePricing(
   bedrooms: number,
   bathrooms: number,
   extras: string[]
-): { basePrice: number; extrasPrice: number; totalPrice: number } {
+): { basePrice: Decimal; extrasPrice: Decimal; totalPrice: Decimal } {
+  // ✅ Return Decimal types
   const serviceTypeKey = serviceType.toUpperCase() as keyof typeof BASE_PRICES;
   const hourlyRate = BASE_PRICES[serviceTypeKey] || BASE_PRICES.REGULAR;
 
@@ -76,7 +79,20 @@ function calculatePricing(
 
   const totalPrice = basePrice + extrasPrice;
 
-  return { basePrice, extrasPrice, totalPrice };
+  // ✅ Convert to Decimal
+  return {
+    basePrice: new Decimal(basePrice),
+    extrasPrice: new Decimal(extrasPrice),
+    totalPrice: new Decimal(totalPrice),
+  };
+}
+
+// ✅ Helper function to extract postcode from address
+function extractPostcode(address: string): string {
+  // Simple regex to extract UK postcode from address
+  const postcodeRegex = /([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})/i;
+  const match = address.match(postcodeRegex);
+  return match ? match[1].toUpperCase() : "UNKNOWN";
 }
 
 export async function createBooking(data: CreateBookingData) {
@@ -91,11 +107,15 @@ export async function createBooking(data: CreateBookingData) {
     const bedrooms = Number.parseInt(data.bedrooms);
     const bathrooms = Number.parseInt(data.bathrooms);
 
+    // ✅ Extract postcode if not provided
+    const postcode = data.postcode || extractPostcode(data.address);
+
     console.log("✅ Validated data:", {
       serviceType,
       frequency,
       bedrooms,
       bathrooms,
+      postcode,
     });
 
     // Calculate pricing
@@ -107,9 +127,9 @@ export async function createBooking(data: CreateBookingData) {
     );
 
     console.log("💰 Calculated pricing:", {
-      basePrice,
-      extrasPrice,
-      totalPrice,
+      basePrice: basePrice.toString(),
+      extrasPrice: extrasPrice.toString(),
+      totalPrice: totalPrice.toString(),
     });
 
     // Create booking with transaction to ensure data consistency
@@ -124,6 +144,7 @@ export async function createBooking(data: CreateBookingData) {
           bedrooms,
           bathrooms,
           address: data.address,
+          postcode, // ✅ Include postcode
           instructions: data.instructions || null,
           date: data.date,
           time: data.time,
@@ -152,7 +173,9 @@ export async function createBooking(data: CreateBookingData) {
             create: {
               id: extraId,
               name: getExtraName(extraId),
-              price: EXTRA_PRICES[extraId as keyof typeof EXTRA_PRICES] || 0,
+              price: new Decimal(
+                EXTRA_PRICES[extraId as keyof typeof EXTRA_PRICES] || 0
+              ), // ✅ Convert to Decimal
             },
           });
         }

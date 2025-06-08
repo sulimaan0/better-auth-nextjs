@@ -4,11 +4,10 @@ import prisma from "@/lib/prisma";
 import { sendEmail } from "@/actions/email";
 import { openAPI } from "better-auth/plugins";
 import { admin } from "better-auth/plugins";
-import { getEmailVerificationHtml } from "/components/email/email-verification-email";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
-    provider: "posgresql",
+    provider: "postgresql",
   }),
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
@@ -34,17 +33,11 @@ export const auth = betterAuth({
           to: newEmail,
           subject: "Verify your email change",
           text: `Click the link to verify: ${url}`,
-          html,
         });
       },
     },
   },
-  socialProviders: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-    },
-  },
+  socialProviders: {},
   plugins: [
     openAPI(),
     admin({
@@ -71,15 +64,10 @@ export const auth = betterAuth({
       try {
         const verificationUrl = `${process.env.BETTER_AUTH_URL}/api/auth/verify-email?token=${token}&callbackURL=${process.env.EMAIL_VERIFICATION_CALLBACK_URL}`;
 
-        const html = getEmailVerificationHtml(
-          user.name || "there",
-          verificationUrl
-        );
-
         await sendEmail({
           to: user.email,
           subject: "Verify your email address",
-          html,
+
           text: `Click the link to verify your email: ${verificationUrl}`,
         });
       } catch (error) {
